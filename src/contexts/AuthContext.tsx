@@ -57,7 +57,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Pertama cek apakah email ada
         const { data: emailCheck, error: emailError } = await supabase
           .from('admin_users')
-          .select('email, is_active')
+          .select('email')
           .eq('email', email)
           .single();
 
@@ -74,29 +74,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           };
         }
 
-        // Cek apakah akun aktif
-        if (!emailCheck.is_active) {
-          return { 
-            error: { 
-              message: 'Akun Anda tidak aktif. Hubungi administrator.',
-              type: 'account'
-            } 
-          };
-        }
-
-        // Jika email ada dan aktif, cek password
+        // Jika email ada, cek password dan status aktif
         const { data: adminUser, error: loginError } = await supabase
           .from('admin_users')
           .select('*')
           .eq('email', email)
           .eq('password', password)
+          .eq('is_active', true)
           .single();
 
-        console.log('Password check:', { adminUser, loginError });
+        console.log('Login attempt:', { adminUser, loginError });
 
-        // Jika password salah
+        // Jika password salah atau user tidak aktif
         if (loginError || !adminUser) {
-          console.log('Password incorrect');
+          // Cek apakah user ada tapi tidak aktif
+          const { data: inactiveUser } = await supabase
+            .from('admin_users')
+            .select('is_active')
+            .eq('email', email)
+            .single();
+
+          if (inactiveUser && !inactiveUser.is_active) {
+            return { 
+              error: { 
+                message: 'Akun Anda tidak aktif. Hubungi administrator.',
+                type: 'account'
+              } 
+            };
+          }
+
+          // Password salah
           return { 
             error: { 
               message: 'Password salah',
